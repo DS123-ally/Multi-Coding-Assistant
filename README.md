@@ -39,6 +39,14 @@ By default, the app is configured to look for a **local Ollama** instance runnin
 streamlit run app.py
 ```
 
+## 🦙 About the Gemma Model
+
+This project is optimized to run locally using **Gemma**, an open-weights model by Google. Specifically, it is configured by default for the `gemma4:e4b` variant via **Ollama**.
+
+- **Why Gemma?**: Gemma models are lightweight and highly capable, making them perfect for running on local hardware without sacrificing coding intelligence.
+- **Privacy First**: By running Gemma locally through Ollama, none of your prompts or proprietary code are sent to external cloud servers. The entire multi-agent workflow happens directly on your machine.
+- **Handling Local Quirks**: Local LLMs can sometimes output unexpected markdown or syntax. To handle this, the system prompts in this app are strictly engineered to enforce valid Python syntax, and the **Autonomous Tester** acts as a safety net to catch and fix hallucinations.
+
 ## 🧠 Architecture
 The application is purely Python-based.
 - `app.py`: Contains the Streamlit frontend UI and session state management.
