@@ -64,7 +64,8 @@ Return ONLY the technical plan in markdown format."""
 class Coder:
     def __init__(self):
         self.system_prompt = """You are the Coder agent. Your job is to write the actual code based on the Planner's plan.
-Provide clean, modular, and well-commented code. Output the code block(s) clearly."""
+Provide clean, modular, and well-commented code. Output the code block(s) clearly.
+CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python."""
 
     def run(self, plan: str):
         return call_llm(self.system_prompt, f"Here is the plan:\n{plan}\n\nPlease implement this code.")
@@ -74,7 +75,8 @@ class Reviewer:
         self.system_prompt = """You are the Reviewer agent. Your job is to review the code.
 If there are errors from the Tester, you MUST fix them.
 Look for bugs, clean code practices, and security issues. 
-Return the final code in a markdown code block."""
+Return the final code in a markdown code block.
+CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python syntax."""
 
     def run(self, code: str, error_log: str = None):
         prompt = f"Please review and finalize the following code:\n{code}"
