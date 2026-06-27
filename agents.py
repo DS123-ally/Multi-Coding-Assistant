@@ -75,7 +75,8 @@ class Coder:
     def __init__(self):
         self.system_prompt = """You are the Coder agent. Your job is to write the actual code based on the Planner's plan.
 Provide clean, modular, and well-commented code. Output the code block(s) clearly.
-CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python."""
+CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python.
+IMPORTANT: The code will be tested in an automated sandbox. DO NOT use `input()`, infinite loops, or blocking GUI calls (like `plt.show()` or `mainloop()`). The code must execute and terminate automatically."""
 
     def run(self, plan: str, token_callback=None):
         return call_llm(self.system_prompt, f"Here is the plan:\n{plan}\n\nPlease implement this code.", token_callback)
@@ -86,7 +87,8 @@ class Reviewer:
 If there are errors from the Tester, you MUST fix them.
 Look for bugs, clean code practices, and security issues. 
 Return the final code in a markdown code block.
-CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python syntax."""
+CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python syntax.
+IMPORTANT: The code will be tested in an automated sandbox. DO NOT use `input()`, infinite loops, or blocking GUI calls (like `plt.show()` or `mainloop()`). The code must execute and terminate automatically."""
 
     def run(self, code: str, error_log: str = None, token_callback=None):
         prompt = f"Please review and finalize the following code:\n{code}"
