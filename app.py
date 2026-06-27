@@ -18,11 +18,19 @@ with st.sidebar:
     base_url = st.text_input("API Base URL (for local models like Ollama)", value=os.getenv("OPENAI_BASE_URL", ""))
     model_name = st.text_input("Model Name", value=os.getenv("MODEL_NAME", "gemma"))
     
+    st.divider()
+    st.header("Workspace")
+    workspace_dir = st.text_input("Workspace Directory", value="workspace")
+    
     if st.button("Save Config"):
         os.environ["OPENAI_API_KEY"] = api_key
         os.environ["OPENAI_BASE_URL"] = base_url
         os.environ["MODEL_NAME"] = model_name
         st.success("Configuration updated!")
+
+# Ensure workspace directory exists
+if not os.path.exists(workspace_dir):
+    os.makedirs(workspace_dir)
 
 # Main chat interface
 if "messages" not in st.session_state:
@@ -62,21 +70,30 @@ if user_input:
             stream_placeholder.empty()
 
         # Run the workflow without st.spinner so we can see the real-time stream
-        results = run_workflow(user_input, status_callback=ui_callback_wrapper, token_callback=token_callback)
+        results = run_workflow(user_input, workspace_dir, status_callback=ui_callback_wrapper, token_callback=token_callback)
         stream_placeholder.empty() # Clear the streaming block after it's fully done
             
         status_placeholder.success("Workflow Complete!")
         
         # Display results in tabs
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Final Output", "Console Output", "Orchestrator Analysis", "Plan", "Raw Code"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Saved Files", "Final Output", "Console Output", "Orchestrator Analysis", "Plan", "Raw Code"])
         
         with tab1:
+            st.markdown("#### Files Saved to Workspace")
+            saved_files = results.get("saved_files", [])
+            if saved_files:
+                for file in saved_files:
+                    st.success(f"💾 `{os.path.join(workspace_dir, file)}`")
+            else:
+                st.info("No files were saved.")
+                
+        with tab2:
             st.markdown("#### Final Reviewed Code")
             if not results.get("success", True):
                 st.warning("⚠️ The Tester Agent could not get the code to run successfully after maximum retries.")
             st.markdown(results.get("final_code", "No final code generated."))
             
-        with tab2:
+        with tab3:
             st.markdown("#### Tester Sandbox Console")
             if results.get("success"):
                 st.success("Code executed successfully!")
@@ -84,13 +101,13 @@ if user_input:
                 st.error("Code execution failed.")
             st.code(results.get("console_output", ""), language="text")
 
-        with tab3:
+        with tab4:
             st.json(results.get("orchestrator_analysis", {}))
             
-        with tab4:
+        with tab5:
             st.markdown(results.get("plan", "No plan generated."))
             
-        with tab5:
+        with tab6:
             st.markdown("#### Code before review")
             st.markdown(results.get("code", "No code generated."))
             
