@@ -16,7 +16,7 @@ client = OpenAI(
 )
 MODEL = os.getenv("MODEL_NAME", "gemma")
 
-def call_llm(system_prompt: str, user_prompt: str) -> str:
+def call_llm(system_prompt: str, user_prompt: str, token_callback=None) -> str:
     try:
         response = client.chat.completions.create(
             model=MODEL,
@@ -24,9 +24,19 @@ def call_llm(system_prompt: str, user_prompt: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.3
+            temperature=0.3,
+            stream=bool(token_callback)
         )
-        return response.choices[0].message.content
+        if token_callback:
+            full_content = ""
+            for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_content += content
+                    token_callback(content)
+            return full_content
+        else:
+            return response.choices[0].message.content
     except Exception as e:
         return f"Error calling LLM: {str(e)}"
 
@@ -49,8 +59,8 @@ Example output:
     "instructions_for_agent": "Create a detailed step-by-step architecture for a Python snake game."
 }"""
 
-    def run(self, user_request: str):
-        return call_llm(self.system_prompt, f"User Request: {user_request}\n\nPlease analyze and delegate to the Planner.")
+    def run(self, user_request: str, token_callback=None):
+        return call_llm(self.system_prompt, f"User Request: {user_request}\n\nPlease analyze and delegate to the Planner.", token_callback)
 
 class Planner:
     def __init__(self):
@@ -58,8 +68,8 @@ class Planner:
 Break the task down into clear implementation steps, specifying the files to create, architecture, and libraries.
 Return ONLY the technical plan in markdown format."""
 
-    def run(self, instructions: str):
-        return call_llm(self.system_prompt, instructions)
+    def run(self, instructions: str, token_callback=None):
+        return call_llm(self.system_prompt, instructions, token_callback)
 
 class Coder:
     def __init__(self):
@@ -67,8 +77,8 @@ class Coder:
 Provide clean, modular, and well-commented code. Output the code block(s) clearly.
 CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python."""
 
-    def run(self, plan: str):
-        return call_llm(self.system_prompt, f"Here is the plan:\n{plan}\n\nPlease implement this code.")
+    def run(self, plan: str, token_callback=None):
+        return call_llm(self.system_prompt, f"Here is the plan:\n{plan}\n\nPlease implement this code.", token_callback)
 
 class Reviewer:
     def __init__(self):
@@ -78,11 +88,11 @@ Look for bugs, clean code practices, and security issues.
 Return the final code in a markdown code block.
 CRITICAL: You are writing Python. Do NOT use C-style comments (/* */). Use ONLY Python comments (#). Ensure it is 100% valid Python syntax."""
 
-    def run(self, code: str, error_log: str = None):
+    def run(self, code: str, error_log: str = None, token_callback=None):
         prompt = f"Please review and finalize the following code:\n{code}"
         if error_log:
             prompt += f"\n\nCRITICAL: The code failed when tested. Fix these errors:\n{error_log}"
-        return call_llm(self.system_prompt, prompt)
+        return call_llm(self.system_prompt, prompt, token_callback)
 
 class Tester:
     def __init__(self):
@@ -123,7 +133,7 @@ class Tester:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-def run_workflow(user_request: str, callback=None):
+def run_workflow(user_request: str, status_callback=None, token_callback=None):
     # This function orchestrates the whole flow
     orchestrator = Orchestrator()
     planner = Planner()
@@ -131,8 +141,8 @@ def run_workflow(user_request: str, callback=None):
     reviewer = Reviewer()
     tester = Tester()
     
-    if callback: callback("Orchestrator", "Analyzing the user request...")
-    orch_response = orchestrator.run(user_request)
+    if status_callback: status_callback("Orchestrator", "Analyzing the user request...")
+    orch_response = orchestrator.run(user_request, token_callback)
     
     # Simple fallback parsing
     orch_data = {}
@@ -150,11 +160,11 @@ def run_workflow(user_request: str, callback=None):
             "instructions_for_agent": orch_response
         }
 
-    if callback: callback("Planner", "Creating technical plan...")
-    plan = planner.run(orch_data.get("instructions_for_agent", user_request))
+    if status_callback: status_callback("Planner", "Creating technical plan...")
+    plan = planner.run(orch_data.get("instructions_for_agent", user_request), token_callback)
     
-    if callback: callback("Coder", "Writing the code...")
-    code = coder.run(plan)
+    if status_callback: status_callback("Coder", "Writing the code...")
+    code = coder.run(plan, token_callback)
     
     # Reviewer and Tester Feedback Loop
     max_retries = 2
@@ -163,17 +173,17 @@ def run_workflow(user_request: str, callback=None):
     console_output = "Code not tested."
     
     while attempts <= max_retries:
-        if callback: callback("Reviewer", f"Reviewing code (Attempt {attempts + 1})...")
-        final_code = reviewer.run(final_code, error_log=console_output if attempts > 0 else None)
+        if status_callback: status_callback("Reviewer", f"Reviewing code (Attempt {attempts + 1})...")
+        final_code = reviewer.run(final_code, error_log=console_output if attempts > 0 else None, token_callback=token_callback)
         
-        if callback: callback("Tester", f"Running code in sandbox...")
+        if status_callback: status_callback("Tester", f"Running code in sandbox...")
         success, console_output = tester.run(final_code)
         
         if success:
-            if callback: callback("Tester", f"Code passed all tests!")
+            if status_callback: status_callback("Tester", f"Code passed all tests!")
             break
         else:
-            if callback: callback("Tester", f"Code failed. Sending error back to Reviewer...")
+            if status_callback: status_callback("Tester", f"Code failed. Sending error back to Reviewer...")
             attempts += 1
 
     return {

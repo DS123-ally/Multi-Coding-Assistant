@@ -44,15 +44,26 @@ if user_input:
     with st.chat_message("assistant"):
         st.markdown("### Agent Workflow 🚀")
         
-        # We will use an expander to show the agent thinking process
         status_placeholder = st.empty()
+        stream_placeholder = st.empty()
         
-        # Callback to update the UI
-        def ui_callback(agent_name, status):
+        # We need a mutable string to accumulate tokens
+        stream_data = {"text": ""}
+        
+        def token_callback(token):
+            stream_data["text"] += token
+            # update UI with a blinking cursor
+            stream_placeholder.markdown(stream_data["text"] + "▌")
+
+        def ui_callback_wrapper(agent_name, status):
             status_placeholder.info(f"**{agent_name}:** {status}")
-            
-        with st.spinner("Processing..."):
-            results = run_workflow(user_input, callback=ui_callback)
+            # Clear text and placeholder before new agent starts streaming
+            stream_data["text"] = ""
+            stream_placeholder.empty()
+
+        # Run the workflow without st.spinner so we can see the real-time stream
+        results = run_workflow(user_input, status_callback=ui_callback_wrapper, token_callback=token_callback)
+        stream_placeholder.empty() # Clear the streaming block after it's fully done
             
         status_placeholder.success("Workflow Complete!")
         
